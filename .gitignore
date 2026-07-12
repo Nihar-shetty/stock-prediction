@@ -1,0 +1,12 @@
+# IntelliJ & VS Code
+.idea/
+.vscode/
+.bytecoder/
+
+# Maven targets
+**/target/
+**/build/
+.mvn/wrapper/maven-wrapper.jar
+
+# Credentials & Secrets (DO NOT PUSH TO GITHUB)
+demo/src/main/resources/credentials.properties

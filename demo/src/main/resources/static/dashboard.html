@@ -1,0 +1,744 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>AI Stock Intelligence Platform</title>
+
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<script>
+tailwind.config = {
+  theme: {
+    extend: {
+      colors: {
+        neon: '#34d399',
+        ai: '#22d3ee',
+        danger: '#ef4444'
+      }
+    }
+  }
+}
+</script>
+
+<style>
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background:
+    radial-gradient(circle at 20% 30%, #22d3ee22, transparent 40%),
+    radial-gradient(circle at 80% 20%, #34d39922, transparent 40%),
+    radial-gradient(circle at 50% 80%, #0ea5e922, transparent 40%);
+  animation: bgMove 18s linear infinite;
+  z-index: -1;
+}
+
+@keyframes bgMove {
+  0%,100% { transform: translateY(0); }
+  50% { transform: translateY(-50px); }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.8s ease-out forwards;
+}
+</style>
+</head>
+
+<body class="bg-black text-white min-h-screen">
+
+<!-- ================= AI LOADER ================= -->
+<div id="aiLoader"
+ class="fixed inset-0 bg-black/90 backdrop-blur-xl z-50 hidden flex items-center justify-center">
+  <div class="text-center">
+    <div class="w-20 h-20 border-4 border-neon border-t-transparent rounded-full animate-spin mx-auto"></div>
+    <p class="mt-6 text-lg tracking-widest text-neon animate-pulse">
+      AI ENGINE ACTIVE
+    </p>
+    <p id="aiStep" class="text-sm text-gray-400 mt-2"></p>
+  </div>
+</div>
+
+<!-- ================= HEADER ================= -->
+<header class="sticky top-0 z-40 backdrop-blur-xl border-b border-white/10">
+  <div class="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
+    <h1 class="text-xl font-bold text-ai">🧠Stock Intelligence</h1>
+    <div id="authStatusContainer" class="flex items-center gap-4 text-sm">
+      <button onclick="openAuthModal()" class="px-4 py-2 bg-gradient-to-r from-neon to-ai text-black rounded-lg font-bold hover:scale-105 transition transform shadow-lg hover:shadow-neon/50">
+        🔑 Log In / Register
+      </button>
+    </div>
+  </div>
+</header>
+
+<!-- ================= MAIN ================= -->
+<main class="max-w-7xl mx-auto px-6 py-12">
+
+<section class="text-center mb-14 animate-fade-in">
+  <h2 class="text-5xl font-extrabold mb-4">
+    Deep Learning <span class="text-neon">Stock Forecasting</span>
+  </h2>
+  <p class="text-gray-400 max-w-2xl mx-auto">
+    LSTM Neural Networks trained on 10 years of historical data with volatility analysis and risk assessment.
+  </p>
+</section>
+
+<!-- CONTROL -->
+<section class="max-w-xl mx-auto bg-white/5 backdrop-blur-xl rounded-2xl p-6 shadow-2xl border border-white/10 mb-8 animate-fade-in hover:shadow-neon/20 transition-shadow">
+  <label class="text-sm text-gray-400">Select Stock</label>
+  <div class="flex gap-2 mt-2">
+    <select id="stockSelect"
+      class="flex-1 p-3 rounded-lg bg-black/50 border border-white/20 focus:ring-2 focus:ring-neon focus:border-neon outline-none transition">
+    </select>
+    <button id="watchlistBtn" onclick="toggleWatchlist()" class="px-4 bg-white/10 text-white rounded-lg border border-white/20 hover:bg-white/20 transition text-lg hidden" title="Add to Watchlist">
+      ☆
+    </button>
+  </div>
+
+  <button onclick="predict()"
+    class="w-full mt-4 bg-gradient-to-r from-neon to-ai text-black py-3 rounded-lg font-bold hover:scale-105 transition transform shadow-lg hover:shadow-neon/50">
+    🚀 Run AI Forecast
+  </button>
+</section>
+
+<!-- WATCHLIST CONTAINER -->
+<section id="watchlistContainer" class="max-w-xl mx-auto bg-white/5 backdrop-blur-xl rounded-2xl p-6 shadow-2xl border border-white/10 mb-8 animate-fade-in hover:shadow-neon/20 transition-shadow hidden">
+  <h4 class="text-sm font-bold text-gray-400 mb-3 uppercase tracking-wider">⭐ Your Watchlist</h4>
+  <div id="watchlistChips" class="flex flex-wrap gap-2"></div>
+</section>
+
+<!-- Section 1: Current Market Snapshot -->
+<section id="currentSnapshot" class="bg-white/5 backdrop-blur-xl rounded-2xl p-8 shadow-2xl border border-white/10 mb-12 animate-fade-in hover:shadow-neon/20 transition-shadow">
+  <h3 class="text-2xl font-bold text-neon mb-6 flex items-center">
+    📊 Current Market Snapshot
+  </h3>
+  <div class="text-center">
+    <p class="text-sm text-gray-400 mb-2">Current Month-End Closing Price</p>
+    <p id="currentPriceDisplay" class="text-4xl font-bold text-white mb-2">₹ --</p>
+    <p id="currentDateDisplay" class="text-lg text-gray-300 mb-4">-- ----</p>
+    <div class="inline-block bg-ai/20 text-ai px-3 py-1 rounded-full text-sm border border-ai/30">
+      Source: Alpha Vantage
+    </div>
+  </div>
+</section>
+
+<!-- Section 2: Historical Trend Overview -->
+<section class="bg-white/5 backdrop-blur-xl rounded-2xl p-8 shadow-2xl border border-white/10 mb-12 animate-fade-in hover:shadow-neon/20 transition-shadow">
+  <h3 class="text-2xl font-bold text-neon mb-6 flex items-center">
+    📈 Historical Trend Overview
+  </h3>
+  <p class="text-gray-400 mb-4">Historical Monthly Closing Prices</p>
+  <canvas id="chart"></canvas>
+</section>
+
+<!-- Section 3: Trend-Based Projection (5-Year Outlook) -->
+<section class="bg-white/5 backdrop-blur-xl rounded-2xl p-8 shadow-2xl border border-white/10 mb-12 animate-fade-in hover:shadow-neon/20 transition-shadow">
+  <h3 class="text-2xl font-bold text-neon mb-6 flex items-center">
+    🔮 Trend-Based Projection (5-Year Outlook)
+  </h3>
+  <p class="text-gray-400 mb-4">Values are indicative and based on historical trend analysis</p>
+  <div id="cards" class="grid grid-cols-1 md:grid-cols-3 gap-6"></div>
+</section>
+
+<!-- Section 4: Advanced Analytics -->
+<section id="volatilitySection" class="bg-white/5 backdrop-blur-xl rounded-2xl p-8 shadow-2xl border border-white/10 mb-12 animate-fade-in hover:shadow-neon/20 transition-shadow hidden">
+  <h3 class="text-2xl font-bold text-neon mb-6 flex items-center">
+    📊 Advanced Analytics & Technical Indicators
+  </h3>
+  <p class="text-gray-400 mb-6">AI-powered technical analysis with RSI, MACD, market sentiment, and risk metrics</p>
+
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+    <!-- Technical Indicators -->
+    <div class="bg-gradient-to-br from-blue-900/20 to-blue-800/20 rounded-xl p-6 border border-blue-500/30">
+      <div class="flex items-center mb-4">
+        <span class="text-2xl mr-3">📈</span>
+        <div>
+          <h4 class="text-lg font-bold text-blue-400">Technical Indicators</h4>
+          <p class="text-sm text-blue-300">RSI & MACD Analysis</p>
+        </div>
+      </div>
+      <div id="technicalContent" class="space-y-3">
+        <!-- Content will be populated by JavaScript -->
+      </div>
+    </div>
+
+    <!-- Market Intelligence -->
+    <div class="bg-gradient-to-br from-green-900/20 to-green-800/20 rounded-xl p-6 border border-green-500/30">
+      <div class="flex items-center mb-4">
+        <span class="text-2xl mr-3">🧠</span>
+        <div>
+          <h4 class="text-lg font-bold text-green-400">Market Intelligence</h4>
+          <p class="text-sm text-green-300">Sentiment & Dividend Analysis</p>
+        </div>
+      </div>
+      <div id="marketContent" class="space-y-3">
+        <!-- Content will be populated by JavaScript -->
+      </div>
+    </div>
+  </div>
+
+  <!-- Risk Metrics -->
+  <div class="mt-8">
+    <h4 class="text-xl font-bold text-white mb-4">Risk & Performance Metrics</h4>
+    <div id="riskContent" class="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <!-- Content will be populated by JavaScript -->
+    </div>
+  </div>
+</section>
+
+<!-- Section 5: Risk & AI Insight -->
+<section class="bg-white/5 backdrop-blur-xl rounded-2xl p-8 shadow-2xl border border-white/10 mb-12 animate-fade-in hover:shadow-neon/20 transition-shadow">
+  <h3 class="text-2xl font-bold text-neon mb-6 flex items-center">
+    🛡️ Risk & AI Insight
+  </h3>
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+    <div class="text-center">
+      <svg width="160" height="160" class="mx-auto mb-4">
+        <circle cx="80" cy="80" r="70" stroke="#374151" stroke-width="10" fill="none"/>
+        <circle id="riskCircle" cx="80" cy="80" r="70"
+          stroke="#34d399" stroke-width="10" fill="none"
+          stroke-dasharray="440"
+          stroke-dashoffset="440"
+          stroke-linecap="round"/>
+      </svg>
+      <p id="riskText" class="text-gray-300">Risk Level</p>
+    </div>
+    <div>
+      <h4 class="text-lg font-semibold text-white mb-2">AI Analysis</h4>
+      <p id="insightText" class="text-gray-300 mb-4"></p>
+      <button onclick="speakInsight()"
+        class="px-4 py-2 bg-ai text-black rounded-lg hover:scale-105 transition transform shadow-lg hover:shadow-ai/50">
+        🔊 Listen AI Explanation
+      </button>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer class="max-w-7xl mx-auto px-6 py-8 border-t border-white/10 text-center">
+  <p class="text-gray-400 text-sm">
+    Data Source: Alpha Vantage (Historical Monthly Closing Prices).<br>
+    Forecasts are indicative and based on historical trend analysis.
+  </p>
+</footer>
+
+<!-- ================= AUTH MODAL ================= -->
+<div id="authModal" class="fixed inset-0 bg-black/85 backdrop-blur-md z-50 hidden flex items-center justify-center">
+  <div class="bg-zinc-900 border border-white/10 p-8 rounded-2xl max-w-md w-full relative shadow-2xl">
+    <button onclick="closeAuthModal()" class="absolute top-4 right-4 text-gray-400 hover:text-white text-xl">&times;</button>
+    
+    <div class="flex border-b border-white/10 mb-6 text-center">
+      <button id="loginTabBtn" onclick="switchAuthTab('login')" class="flex-1 pb-2 font-bold text-neon border-b-2 border-neon">Log In</button>
+      <button id="registerTabBtn" onclick="switchAuthTab('register')" class="flex-1 pb-2 font-bold text-gray-400">Register</button>
+    </div>
+
+    <form id="authForm" onsubmit="handleAuthSubmit(event)">
+      <div class="space-y-4">
+        <div>
+          <label class="block text-xs text-gray-400 uppercase tracking-wider mb-2">Username</label>
+          <input id="authUsername" type="text" required class="w-full p-3 rounded-lg bg-zinc-950 border border-white/20 text-white outline-none focus:ring-2 focus:ring-neon">
+        </div>
+        <div>
+          <label class="block text-xs text-gray-400 uppercase tracking-wider mb-2">Password</label>
+          <input id="authPassword" type="password" required class="w-full p-3 rounded-lg bg-zinc-950 border border-white/20 text-white outline-none focus:ring-2 focus:ring-neon">
+        </div>
+        <p id="authErrorMsg" class="text-danger text-sm hidden"></p>
+        <p id="authSuccessMsg" class="text-neon text-sm hidden"></p>
+        <button type="submit" id="authSubmitBtn" class="w-full bg-gradient-to-r from-neon to-ai text-black py-3 rounded-lg font-bold hover:scale-105 transition transform mt-2">
+          Log In
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+</main>
+
+<script>
+let chart;
+let currentUser = null;
+let watchlist = new Set();
+let activeAuthTab = 'login';
+
+const aiSteps = [
+  "Loading historical patterns…",
+  "Running LSTM neural network…",
+  "Evaluating volatility index…",
+  "Simulating future scenarios…",
+  "Generating AI intelligence…",
+  "Comparing market scenarios…"
+];
+
+// Load Stock Tickers on Init
+fetch('/api/stocks')
+.then(r=>r.json())
+.then(d=>{
+  const s=document.getElementById("stockSelect");
+  d.forEach(x=>s.innerHTML+=`<option>${x}</option>`);
+  checkAuthStatus();
+})
+.catch(e=>{
+  console.error('Failed to load stocks:', e);
+  alert('Failed to connect to backend. Make sure Spring Boot is running on port 8080.');
+});
+
+// Authentication & Session Management
+function checkAuthStatus() {
+  fetch('/api/auth/status')
+  .then(r => r.json())
+  .then(data => {
+    if (data.authenticated) {
+      currentUser = data.username;
+      watchlist = new Set(data.watchlist);
+      updateAuthUI(true);
+    } else {
+      currentUser = null;
+      watchlist = new Set();
+      updateAuthUI(false);
+    }
+  });
+}
+
+function updateAuthUI(isLoggedIn) {
+  const container = document.getElementById("authStatusContainer");
+  const watchlistBtn = document.getElementById("watchlistBtn");
+  const watchlistSection = document.getElementById("watchlistContainer");
+  
+  if (isLoggedIn) {
+    container.innerHTML = `
+      <span class="text-gray-400">Welcome, <strong class="text-neon">${currentUser}</strong></span>
+      <button onclick="logout()" class="px-3 py-1.5 bg-zinc-800 text-white rounded-lg hover:bg-zinc-700 transition">
+        Log Out
+      </button>
+    `;
+    watchlistBtn.classList.remove("hidden");
+    watchlistSection.classList.remove("hidden");
+    updateWatchlistUI();
+    updateWatchlistButtonState();
+  } else {
+    container.innerHTML = `
+      <button onclick="openAuthModal()" class="px-4 py-2 bg-gradient-to-r from-neon to-ai text-black rounded-lg font-bold hover:scale-105 transition transform shadow-lg hover:shadow-neon/50">
+        🔑 Log In / Register
+      </button>
+    `;
+    watchlistBtn.classList.add("hidden");
+    watchlistSection.classList.add("hidden");
+  }
+}
+
+function openAuthModal() {
+  document.getElementById("authModal").classList.remove("hidden");
+  document.getElementById("authErrorMsg").classList.add("hidden");
+  document.getElementById("authSuccessMsg").classList.add("hidden");
+}
+
+function closeAuthModal() {
+  document.getElementById("authModal").classList.add("hidden");
+}
+
+function switchAuthTab(tab) {
+  activeAuthTab = tab;
+  const loginBtn = document.getElementById("loginTabBtn");
+  const registerBtn = document.getElementById("registerTabBtn");
+  const submitBtn = document.getElementById("authSubmitBtn");
+  
+  if (tab === 'login') {
+    loginBtn.className = "flex-1 pb-2 font-bold text-neon border-b-2 border-neon";
+    registerBtn.className = "flex-1 pb-2 font-bold text-gray-400";
+    submitBtn.innerText = "Log In";
+  } else {
+    loginBtn.className = "flex-1 pb-2 font-bold text-gray-400";
+    registerBtn.className = "flex-1 pb-2 font-bold text-neon border-b-2 border-neon";
+    submitBtn.innerText = "Register";
+  }
+  document.getElementById("authErrorMsg").classList.add("hidden");
+  document.getElementById("authSuccessMsg").classList.add("hidden");
+}
+
+async function handleAuthSubmit(e) {
+  e.preventDefault();
+  const username = document.getElementById("authUsername").value;
+  const password = document.getElementById("authPassword").value;
+  const errorMsg = document.getElementById("authErrorMsg");
+  const successMsg = document.getElementById("authSuccessMsg");
+  
+  errorMsg.classList.add("hidden");
+  successMsg.classList.add("hidden");
+
+  const endpoint = activeAuthTab === 'login' ? '/api/auth/login' : '/api/auth/register';
+
+  try {
+    const res = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password })
+    });
+    const data = await res.json();
+    
+    if (!res.ok) {
+      errorMsg.innerText = data.error || "Authentication failed";
+      errorMsg.classList.remove("hidden");
+      return;
+    }
+
+    if (activeAuthTab === 'register') {
+      successMsg.innerText = "Account created! Logging in...";
+      successMsg.classList.remove("hidden");
+      setTimeout(() => {
+        switchAuthTab('login');
+        handleAuthSubmit(e); // Trigger login using same credentials
+      }, 1000);
+    } else {
+      currentUser = data.username;
+      watchlist = new Set(data.watchlist);
+      updateAuthUI(true);
+      closeAuthModal();
+      document.getElementById("authUsername").value = "";
+      document.getElementById("authPassword").value = "";
+    }
+  } catch (err) {
+    errorMsg.innerText = "Connection error. Try again.";
+    errorMsg.classList.remove("hidden");
+  }
+}
+
+function logout() {
+  fetch('/api/auth/logout', { method: 'POST' })
+  .then(() => {
+    currentUser = null;
+    watchlist = new Set();
+    updateAuthUI(false);
+  });
+}
+
+// Watchlist API Functions
+function toggleWatchlist() {
+  const stock = document.getElementById("stockSelect").value;
+  const isWatchlisted = watchlist.has(stock);
+  const url = isWatchlisted ? `/api/auth/watchlist/remove/${stock}` : `/api/auth/watchlist/add/${stock}`;
+
+  fetch(url, { method: 'POST' })
+  .then(r => r.json())
+  .then(data => {
+    if (data.watchlist) {
+      watchlist = new Set(data.watchlist);
+      updateWatchlistUI();
+      updateWatchlistButtonState();
+    }
+  });
+}
+
+function updateWatchlistButtonState() {
+  const stock = document.getElementById("stockSelect").value;
+  const btn = document.getElementById("watchlistBtn");
+  if (watchlist.has(stock)) {
+    btn.innerText = "⭐";
+    btn.className = "px-4 bg-yellow-500/20 text-yellow-400 rounded-lg border border-yellow-500/40 hover:bg-yellow-500/30 transition text-lg";
+  } else {
+    btn.innerText = "☆";
+    btn.className = "px-4 bg-white/10 text-white rounded-lg border border-white/20 hover:bg-white/20 transition text-lg";
+  }
+}
+
+function updateWatchlistUI() {
+  const chips = document.getElementById("watchlistChips");
+  chips.innerHTML = "";
+  if (watchlist.size === 0) {
+    chips.innerHTML = `<span class="text-sm text-gray-500 italic">Watchlist empty. Click ☆ next to stock to add.</span>`;
+    return;
+  }
+  watchlist.forEach(stock => {
+    chips.innerHTML += `
+      <button onclick="loadStock('${stock}')" class="px-3 py-1.5 bg-zinc-800 border border-white/10 hover:border-neon rounded-full text-sm text-neon font-medium transition duration-150">
+        ${stock}
+      </button>
+    `;
+  });
+}
+
+function loadStock(stock) {
+  document.getElementById("stockSelect").value = stock;
+  updateWatchlistButtonState();
+  predict();
+}
+
+// Listen to Stock selection changes to update watchlist star state
+document.getElementById("stockSelect").addEventListener("change", updateWatchlistButtonState);
+
+// Prediction AI logic
+async function predict(){
+  try {
+    const loader=document.getElementById("aiLoader");
+    const step=document.getElementById("aiStep");
+    loader.classList.remove("hidden");
+
+    let i=0;
+    const t=setInterval(()=>step.innerText=aiSteps[i++%aiSteps.length],800);
+    await new Promise(r=>setTimeout(r,4000)); // slightly shortened simulated wait time
+    clearInterval(t);
+    loader.classList.add("hidden");
+
+    const stock=stockSelect.value;
+    const res=await fetch(`/api/predict/${stock}`);
+    let response=await res.json();
+
+    if(response.error){
+      alert('Error: ' + response.error);
+      return;
+    }
+
+    // Show advanced analytics section
+    document.getElementById("volatilitySection").classList.remove("hidden");
+
+    renderVolatility(response);
+
+    const currentPrice = response.currentPrice;
+    const latestDate = response.latestDate;
+    let data = response.prices;
+    let history = response.history || [];
+
+    renderAll(data, currentPrice, latestDate, history);
+  } catch(e) {
+    console.error('Failed to predict:', e);
+    alert('Failed to get prediction. Check console for details.');
+  }
+}
+
+function renderVolatility(data){
+  // Render technical indicators
+  const technicalContent = document.getElementById("technicalContent");
+  const rsiValue = data.rsi.toFixed(2);
+  const macdValue = data.macd.toFixed(4);
+  const rsiColor = data.rsi > 70 ? "text-red-400" : data.rsi < 30 ? "text-green-400" : "text-yellow-400";
+  const rsiStatus = data.rsi > 70 ? "Overbought" : data.rsi < 30 ? "Oversold" : "Neutral";
+
+  technicalContent.innerHTML = `
+    <div class="grid grid-cols-2 gap-4">
+      <div class="text-center">
+        <p class="text-2xl font-bold ${rsiColor}">${rsiValue}</p>
+        <p class="text-sm text-gray-300">RSI (14)</p>
+        <p class="text-xs ${rsiColor}">${rsiStatus}</p>
+      </div>
+      <div class="text-center">
+        <p class="text-2xl font-bold text-cyan-400">${macdValue}</p>
+        <p class="text-sm text-gray-300">MACD</p>
+        <p class="text-xs text-cyan-300">${data.macd > 0 ? 'Bullish' : 'Bearish'}</p>
+      </div>
+    </div>
+  `;
+
+  // Render market intelligence
+  const marketContent = document.getElementById("marketContent");
+  const sentimentColor = data.marketSentiment.includes("BULLISH") ? "text-green-400" :
+                        data.marketSentiment.includes("BEARISH") ? "text-red-400" : "text-yellow-400";
+  const dividendPercent = (data.dividendYield * 100).toFixed(2);
+
+  marketContent.innerHTML = `
+    <div class="space-y-4">
+      <div class="text-center">
+        <p class="text-xl font-bold ${sentimentColor}">${data.marketSentiment}</p>
+        <p class="text-sm text-gray-300">Market Sentiment</p>
+      </div>
+      <div class="text-center">
+        <p class="text-xl font-bold text-purple-400">${dividendPercent}%</p>
+        <p class="text-sm text-gray-300">Est. Dividend Yield</p>
+      </div>
+    </div>
+  `;
+
+  // Render risk metrics
+  const riskContent = document.getElementById("riskContent");
+  const volatilityPercent = (data.volatility * 100).toFixed(2);
+  const riskLevel = data.volatility > 0.3 ? "High" : data.volatility > 0.15 ? "Medium" : "Low";
+  const riskColor = data.volatility > 0.3 ? "text-red-400" : data.volatility > 0.15 ? "text-yellow-400" : "text-green-400";
+  const sharpeValue = data.sharpeRatio.toFixed(2);
+  const sharpeColor = data.sharpeRatio > 1 ? "text-green-400" : data.sharpeRatio > 0 ? "text-yellow-400" : "text-red-400";
+
+  riskContent.innerHTML = `
+    <div class="bg-gradient-to-br from-purple-900/20 to-purple-800/20 rounded-xl p-6 border border-purple-500/30">
+      <div class="text-center">
+        <p class="text-2xl font-bold ${riskColor}">${volatilityPercent}%</p>
+        <p class="text-sm text-gray-300">Annual Volatility</p>
+        <p class="text-xs ${riskColor}">${riskLevel} Risk</p>
+      </div>
+    </div>
+    <div class="bg-gradient-to-br from-cyan-900/20 to-cyan-800/20 rounded-xl p-6 border border-cyan-500/30">
+      <div class="text-center">
+        <p class="text-2xl font-bold ${sharpeColor}">${sharpeValue}</p>
+        <p class="text-sm text-gray-300">Sharpe Ratio</p>
+        <p class="text-xs ${sharpeColor}">${data.sharpeRatio > 1 ? 'Excellent' : data.sharpeRatio > 0 ? 'Good' : 'Poor'}</p>
+      </div>
+    </div>
+    <div class="bg-gradient-to-br from-green-900/20 to-green-800/20 rounded-xl p-6 border border-green-500/30">
+      <div class="text-center">
+        <p class="text-2xl font-bold text-green-400">${data.confidence.toFixed(1)}%</p>
+        <p class="text-sm text-gray-300">AI Confidence</p>
+        <p class="text-xs text-green-300">Prediction Accuracy</p>
+      </div>
+    </div>
+  `;
+}
+
+function renderSnapshot(price, date){
+  currentPriceDisplay.innerText = `₹ ${price}`;
+  if(date){
+    const d = new Date(date + "T00:00:00");
+    const month = d.toLocaleString('default', { month: 'long' });
+    const year = d.getFullYear();
+    currentDateDisplay.innerText = `${month} ${year}`;
+  }
+}
+
+function renderRisk(p){
+  const risk=Math.min(90,Math.abs(p[p.length-1]-p[0])/p[0]*100);
+  const offset=440-(440*risk/100);
+  riskCircle.style.strokeDashoffset=offset;
+  riskText.innerText=`Risk Level: ${risk.toFixed(1)}%`;
+}
+
+// Draw double line chart showing past history and future AI prediction
+function renderChart(latestDateStr, history, forecast) {
+  if (chart) chart.destroy();
+
+  // Show last 12 months of historical data
+  const historyLen = Math.min(12, history.length);
+  const slicedHistory = history.slice(history.length - historyLen);
+
+  const labels = generateLabels(latestDateStr, historyLen, forecast.length);
+
+  // Construct historical dataset values
+  const historyData = [];
+  for (let i = 0; i < historyLen; i++) {
+    historyData.push(slicedHistory[i]);
+  }
+  for (let i = 0; i < forecast.length; i++) {
+    historyData.push(null);
+  }
+
+  // Construct forecast dataset values (starts at connection point)
+  const forecastData = [];
+  for (let i = 0; i < historyLen - 1; i++) {
+    forecastData.push(null);
+  }
+  forecastData.push(slicedHistory[historyLen - 1]); // connect last history price
+  for (let i = 0; i < forecast.length; i++) {
+    forecastData.push(forecast[i]);
+  }
+
+  chart = new Chart(document.getElementById("chart"), {
+    type: "line",
+    data: {
+      labels: labels,
+      datasets: [
+        {
+          label: "Historical Actuals (12 Months)",
+          data: historyData,
+          borderColor: "rgba(226, 232, 240, 0.4)",
+          backgroundColor: "rgba(226, 232, 240, 0.05)",
+          fill: true,
+          tension: 0.3
+        },
+        {
+          label: "AI Forecast (5 Years)",
+          data: forecastData,
+          borderColor: "#34d399",
+          backgroundColor: "rgba(52, 211, 153, 0.15)",
+          fill: true,
+          tension: 0.3
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: {
+          labels: { color: "white" }
+        }
+      },
+      scales: {
+        x: {
+          grid: { color: "rgba(255, 255, 255, 0.1)" },
+          ticks: { color: "rgba(255, 255, 255, 0.6)", maxRotation: 45 }
+        },
+        y: {
+          grid: { color: "rgba(255, 255, 255, 0.1)" },
+          ticks: { color: "rgba(255, 255, 255, 0.6)" }
+        }
+      }
+    }
+  });
+}
+
+function generateLabels(latestDateStr, historyLength, forecastLength) {
+  const labels = [];
+  const latestDate = new Date(latestDateStr + "T00:00:00");
+  
+  // History labels (oldest to newest)
+  for (let i = historyLength - 1; i >= 0; i--) {
+    const d = new Date(latestDate);
+    d.setMonth(latestDate.getMonth() - i);
+    labels.push(d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0"));
+  }
+  
+  // Forecast labels (next months)
+  for (let i = 1; i <= forecastLength; i++) {
+    const d = new Date(latestDate);
+    d.setMonth(latestDate.getMonth() + i);
+    labels.push(d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0"));
+  }
+  return labels;
+}
+
+function renderAll(data, currentPrice, latestDate, history){
+  renderSnapshot(currentPrice, latestDate);
+  renderRisk(data.map(d=>d.price));
+  renderChart(latestDate, history, data.map(d=>d.price));
+  renderInsight(data.map(d=>d.price));
+  renderCards(data);
+}
+
+function renderInsight(p){
+  const t = p[p.length-1] - p[0];
+  const growth = ((p[p.length-1] - p[0]) / p[0]) * 100;
+
+  insightText.innerText =
+    t > 0
+    ? `AI Analysis: ${growth.toFixed(1)}% projected growth over 5 years. Bullish momentum detected with moderate risk exposure. Consider scenario analysis for comprehensive risk assessment.`
+    : `AI Analysis: ${Math.abs(growth).toFixed(1)}% projected decline over 5 years. Bearish signals with elevated risk. Review scenario comparisons for conservative strategies.`;
+}
+
+function speakInsight(){
+  const msg=new SpeechSynthesisUtterance(insightText.innerText);
+  speechSynthesis.speak(msg);
+}
+
+function k(t,v){
+  return `<div class="bg-white/10 p-6 rounded-xl text-center">
+    <p class="text-sm text-gray-400">${t}</p>
+    <p class="text-3xl font-bold text-neon mt-2">₹ ${v}</p>
+  </div>`;
+}
+
+function renderCards(data){
+  const cards = document.getElementById("cards");
+  if (!cards || !data || data.length < 60) return;
+
+  const y1 = data[11].price;
+  const y3 = data[35].price;
+  const y5 = data[59].price;
+
+  cards.innerHTML = 
+    k("1-Year Forecast", y1.toFixed(2)) +
+    k("3-Year Forecast", y3.toFixed(2)) +
+    k("5-Year Forecast", y5.toFixed(2));
+}
+
+</script>
+
+</body>
+</html>
